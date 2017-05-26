@@ -61,8 +61,19 @@ unset QTDIR
 cd tests/QtWidgetsApplication/build/
 mkdir -p nonfhs fhs/usr/bin
 
+# enable core dumps
+ulimit -c unlimited
+
 cp QtWidgetsApplication nonfhs/
-../../../linuxdeployqt-*-x86_64.AppImage nonfhs/QtWidgetsApplication
+../../../linuxdeployqt-*-x86_64.AppImage nonfhs/QtWidgetsApplication || RESULT=$?
+if [ $RESULT -eq 139 ]; then
+  echo "FAILURE: linuxdeployqt CRASHED with SIGSEGV -- uploading available core dumps to transfer.sh"
+  for dump in $(find -type f -iname "$(cat /proc/sys/kernel/core_pattern | cut -d' ' -f1 | tr -d "|")*"); do
+    curl --upload-file $dump https://transfer.sh/$(basename $dump)
+  done
+  exit $RESULT
+fi
+
 ldd nonfhs/QtWidgetsApplication
 find nonfhs/
 LD_DEBUG=libs nonfhs/QtWidgetsApplication &
